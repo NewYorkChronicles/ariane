@@ -1,27 +1,41 @@
-librwgta
-========
+ariane
+======
 
-This repository contains GTA specific code.
-The library librwgta proper has Rockstar specific plugins for librw.
+A map editor for GTA III, Vice City and San Andreas, built on [librw](https://github.com/aap/librw).
 
-Under tools/convdff and tools/convtxd there is code for some
-dff and txd conversion utilities.
+Forked from [euryopa](https://github.com/aap/librwgta) by aap.
 
-tools/storiesconv converts a number of file formats of GTA Liberty and Vice city
-stories to standard RW files.
+## Features
 
-Under tools/IIItest you can find an ongoing project to reverse engineer GTA III.
-Currently it can render the map:
-![Liberty City (GTA3) rendered by IIItest](http://aap.papnet.eu/gta/screens/mapviewer1.png)
+- Map viewer and editor for GTA III, Vice City and San Andreas
+- Place, move, rotate and delete map objects
+- Object browser
+- Undo/redo support
+- Save changes back to IPL files and IMG archives
+- Day/night cycle and weather control
 
-[Click here for a video](https://www.youtube.com/watch?v=6H8YP2q_-ls)
+## Building
 
-tools/storiesview is a map viewer for PS2 LCS and VCS.
+Requires [librw](https://github.com/aap/librw) built from source. Set the `LIBRW` environment variable to point to your librw directory, then use premake5 to generate build files.
 
-tools/euryopa is a map viewer for GTA III-SA that will become an editor eventually hopefully.
-Since it depends on LZO, which is GPL, consider my code in this repo dual-licenced as GPL.
+```bash
+cd build
+# macOS ARM64
+make config=release_macos-arm64-gl3 euryopa
+# macOS x86_64
+make config=release_macos-amd64-gl3 euryopa
+# Windows (D3D9)
+make config=release_win-amd64-d3d9 euryopa
+```
 
-# Building
+## Usage
 
-Set the LIBRW environment variable to point to the librw directory.
-Otherwise just like librw, i.e. premake5.
+Run from a GTA game directory (III, VC or SA). Ariane auto-detects the game version.
+
+## License
+
+Since this project depends on LZO (GPL), consider the code in this repo dual-licensed as GPL.
+
+## Credits
+
+- [aap](https://github.com/aap) - original euryopa/librwgta project

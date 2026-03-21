@@ -1,0 +1,65 @@
+name: Build Euryopa
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  LIBRW: ${{ github.workspace }}/librw
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout ariane
+        uses: actions/checkout@v4
+        with:
+          path: ariane
+
+      - name: Checkout librw
+        uses: actions/checkout@v4
+        with:
+          repository: Southland-FR/librw
+          path: librw
+          # If this repo is private, add a PAT secret:
+          # token: ${{ secrets.LIBRW_TOKEN }}
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install Premake5
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/premake/premake-core/releases/download/v5.0.0-beta2/premake-5.0.0-beta2-windows.zip" -OutFile premake5.zip
+          Expand-Archive premake5.zip -DestinationPath premake5
+          echo "${{ github.workspace }}\premake5" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Generate librw project files
+        shell: cmd
+        working-directory: librw
+        run: premake5 vs2022
+
+      - name: Build librw
+        shell: cmd
+        working-directory: librw/build
+        run: msbuild librw.sln /p:Configuration=Release /p:Platform=win-amd64-d3d9 /m
+
+      - name: Generate ariane project files
+        shell: cmd
+        working-directory: ariane
+        run: premake5 vs2022
+
+      - name: Build euryopa
+        shell: cmd
+        working-directory: ariane/build
+        run: msbuild librwgta.sln /p:Configuration=Release /p:Platform=win-amd64-d3d9 /t:librwgta;euryopa /m
+
+      - name: Upload euryopa.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: euryopa-windows-d3d9
+          path: ariane/bin/win-amd64-d3d9/Release/euryopa.exe
