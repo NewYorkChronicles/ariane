@@ -1859,7 +1859,7 @@ gui(void)
 				ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove |
 				ImGuiWindowFlags_NoFocusOnAppearing);
 			ImGui::TextColored(ImVec4(1,1,0,1),
-				"PLACE: %s  [Click=Place | RMB/Esc=Cancel]", obj->m_name);
+				"PLACE: %s  [Click=Place | Shift+Click=Multi | RMB/Esc=Cancel]", obj->m_name);
 			ImGui::End();
 		}
 	}

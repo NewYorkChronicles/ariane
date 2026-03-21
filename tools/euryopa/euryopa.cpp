@@ -1048,6 +1048,9 @@ handleTool(void)
 		if(CPad::IsMButtonClicked(1)){
 			rw::V3d pos = GetPlacementPosition();
 			SpawnPlaceObject(pos);
+			// Shift+click = keep placing, plain click = single place
+			if(!CPad::IsKeyDown(KEY_LSHIFT) && !CPad::IsKeyDown(KEY_RSHIFT))
+				gPlaceMode = false;
 			return;
 		}
 		if(CPad::IsMButtonClicked(2) || CPad::IsKeyJustDown(KEY_ESC)){
