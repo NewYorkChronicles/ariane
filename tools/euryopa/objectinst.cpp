@@ -396,6 +396,7 @@ createSpawnedInstance(int objectId, rw::V3d position, GameFile *file, int iplInd
 	inst->m_imageIndex = -1;
 	inst->m_binInstIndex = -1;
 	inst->m_iplIndex = iplIndex;
+	inst->m_isAdded = true;
 	inst->m_isDirty = true;
 
 	ObjectDef *obj = GetObjectDef(objectId);
@@ -979,6 +980,7 @@ cloneInstance(ObjectInst *src, GameFile *dstFile, int iplIndex, rw::V3d offset)
 	inst->m_imageIndex = -1;
 	inst->m_binInstIndex = -1;
 	inst->m_iplIndex = iplIndex;
+	inst->m_isAdded = true;
 	inst->m_isDirty = true;
 	inst->UpdateMatrix();
 	inst->CreateRwObject();

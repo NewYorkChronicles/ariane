@@ -312,6 +312,14 @@ hotReloadIpls(void)
 	CPtrNode *p;
 	int numStreamingIpls = 0;
 	int numEntityCmds = 0;
+	const auto GetAreaFlags = [](ObjectInst *inst) {
+		int area = inst->m_area;
+		if(inst->m_isUnimportant) area |= 0x100;
+		if(inst->m_isUnderWater) area |= 0x400;
+		if(inst->m_isTunnel) area |= 0x800;
+		if(inst->m_isTunnelTransition) area |= 0x1000;
+		return area;
+	};
 
 	// --- Streaming IPLs (binary, reloaded via CIplStore) ---
 	const char *iplNames[256];
@@ -361,6 +369,41 @@ hotReloadIpls(void)
 		for(p = instances.first; p; p = p->next){
 			ObjectInst *inst = (ObjectInst*)p->item;
 			if(!inst->m_isDirty && !inst->m_isDeleted) continue;
+
+			if(inst->m_isAdded){
+				if(inst->m_isDeleted)
+					continue;
+				if(inst->m_imageIndex >= 0)
+					continue;
+
+				int lodModelId = -1;
+				float lodX = 0.0f, lodY = 0.0f, lodZ = 0.0f;
+				if(inst->m_lod && !inst->m_lod->m_isDeleted){
+					lodModelId = inst->m_lod->m_objectId;
+					lodX = inst->m_lod->m_translation.x;
+					lodY = inst->m_lod->m_translation.y;
+					lodZ = inst->m_lod->m_translation.z;
+				}
+
+				// A modelId x y z qx qy qz qw area lodModelId lodX lodY lodZ
+				fprintf(fe, "A %d %f %f %f %f %f %f %f %d %d %f %f %f\n",
+					inst->m_objectId,
+					inst->m_translation.x,
+					inst->m_translation.y,
+					inst->m_translation.z,
+					inst->m_rotation.x,
+					inst->m_rotation.y,
+					inst->m_rotation.z,
+					inst->m_rotation.w,
+					GetAreaFlags(inst),
+					lodModelId,
+					lodX, lodY, lodZ);
+				numEntityCmds++;
+				inst->m_isAdded = false;
+				inst->m_origTranslation = inst->m_translation;
+				inst->m_origRotation = inst->m_rotation;
+				continue;
+			}
 
 			if(inst->m_isDeleted){
 				// D modelId oldX oldY oldZ

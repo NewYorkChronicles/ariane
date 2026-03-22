@@ -9,6 +9,8 @@
 #include <CGame.h>
 #include <CTimeCycle.h>
 #include <CColStore.h>
+#include <CFileLoader.h>
+#include <CFileObjectInstance.h>
 #include <CStreaming.h>
 #include <CIplStore.h>
 #include <CEntity.h>
@@ -26,31 +28,56 @@ FindEntityByModelNearPos(int modelId, float x, float y, float z, float radius)
 	CEntity *found = NULL;
 	float bestDist = radius * radius;
 
+	const auto ConsiderMatches = [&](CEntity **entities, short count) {
+		for(int i = 0; i < count; i++){
+			if(entities[i]->m_nModelIndex != modelId)
+				continue;
+			CVector &epos = entities[i]->GetPosition();
+			float dx = epos.x - x;
+			float dy = epos.y - y;
+			float dz = epos.z - z;
+			float dist = dx*dx + dy*dy + dz*dz;
+			if(dist < bestDist){
+				bestDist = dist;
+				found = entities[i];
+			}
+		}
+	};
+
 	short count = 0;
-	CEntity *entities[32];
+	CEntity *entities[512];
 	CVector pos(x, y, z);
 
-	CWorld::FindObjectsInRange(pos, radius, true, &count, 32, entities,
+	CWorld::FindObjectsInRange(pos, radius, true, &count, 512, entities,
 		true,   // buildings
 		false,  // vehicles
 		false,  // peds
 		false,  // objects
 		true);  // dummies
+	ConsiderMatches(entities, count);
 
-	for(int i = 0; i < count; i++){
-		if(entities[i]->m_nModelIndex != modelId)
-			continue;
-		CVector &epos = entities[i]->GetPosition();
-		float dx = epos.x - x;
-		float dy = epos.y - y;
-		float dz = epos.z - z;
-		float dist = dx*dx + dy*dy + dz*dz;
-		if(dist < bestDist){
-			bestDist = dist;
-			found = entities[i];
-		}
-	}
+	short lodCount = 0;
+	CEntity *lodEntities[512];
+	CWorld::FindLodOfTypeInRange(modelId, pos, radius, true, &lodCount, 512, lodEntities);
+	ConsiderMatches(lodEntities, lodCount);
 	return found;
+}
+
+static void
+PromoteToBigBuildingIfNeeded(CEntity *entity)
+{
+	if(!entity)
+		return;
+	const CBaseModelInfo *mi = CModelInfo::GetModelInfo(entity->m_nModelIndex);
+	if(!mi)
+		return;
+	if(entity->m_nNumLodChildren == 0 && mi->m_fDrawDistance <= 300.0f)
+		return;
+	if(entity->bIsBIGBuilding)
+		return;
+	CWorld::Remove(entity);
+	entity->SetupBigBuilding();
+	CWorld::Add(entity);
 }
 
 // Process entity-level commands from ariane_reload_entities.txt
@@ -60,9 +87,54 @@ ProcessEntityReload(void)
 	FILE *f = fopen("ariane_reload_entities.txt", "r");
 	if(!f) return;
 
+	struct PendingLodLink {
+		CEntity *entity;
+		int lodModelId;
+		float lodX, lodY, lodZ;
+	};
+	PendingLodLink pendingLodLinks[256];
+	int numPendingLodLinks = 0;
+
 	char line[256];
 	while(fgets(line, sizeof(line), f)){
-		if(line[0] == 'M'){
+		if(line[0] == 'A'){
+			// A modelId x y z qx qy qz qw area lodModelId lodX lodY lodZ
+			int modelId, area, lodModelId;
+			float x, y, z, qx, qy, qz, qw, lodX, lodY, lodZ;
+			if(sscanf(line + 2, "%d %f %f %f %f %f %f %f %d %d %f %f %f",
+				&modelId, &x, &y, &z, &qx, &qy, &qz, &qw,
+				&area, &lodModelId, &lodX, &lodY, &lodZ) == 13)
+			{
+				CFileObjectInstance inst = {};
+				inst.m_nModelId = modelId;
+				inst.m_vecPosition = CVector(x, y, z);
+				inst.m_qRotation.imag = CVector(qx, qy, qz);
+				inst.m_qRotation.real = qw;
+				inst.m_nInstanceType = 0;
+				inst.m_nAreaCode = area & 0xFF;
+				inst.m_bRedundantStream = (area & 0x100) != 0;
+				inst.m_bUnderwater = (area & 0x400) != 0;
+				inst.m_bTunnel = (area & 0x800) != 0;
+				inst.m_bTunnelTransition = (area & 0x1000) != 0;
+				inst.m_nLodInstanceIndex = -1;
+
+				CEntity *e = CFileLoader::LoadObjectInstance(&inst, NULL);
+				if(e){
+					CWorld::Add(e);
+					PromoteToBigBuildingIfNeeded(e);
+					e->UpdateRwFrame();
+
+					if(lodModelId >= 0 && numPendingLodLinks < 256){
+						pendingLodLinks[numPendingLodLinks].entity = e;
+						pendingLodLinks[numPendingLodLinks].lodModelId = lodModelId;
+						pendingLodLinks[numPendingLodLinks].lodX = lodX;
+						pendingLodLinks[numPendingLodLinks].lodY = lodY;
+						pendingLodLinks[numPendingLodLinks].lodZ = lodZ;
+						numPendingLodLinks++;
+					}
+				}
+			}
+		}else if(line[0] == 'M'){
 			// M modelId oldX oldY oldZ newX newY newZ qx qy qz qw
 			int modelId;
 			float ox, oy, oz, nx, ny, nz, qx, qy, qz, qw;
@@ -105,6 +177,18 @@ ProcessEntityReload(void)
 			}
 		}
 	}
+
+	for(int i = 0; i < numPendingLodLinks; i++){
+		PendingLodLink &link = pendingLodLinks[i];
+		CEntity *lod = FindEntityByModelNearPos(link.lodModelId, link.lodX, link.lodY, link.lodZ, 50.0f);
+		if(!lod || !link.entity)
+			continue;
+		link.entity->m_pLod = lod;
+		lod->m_nNumLodChildren++;
+		PromoteToBigBuildingIfNeeded(lod);
+		PromoteToBigBuildingIfNeeded(link.entity);
+	}
+
 	fclose(f);
 	remove("ariane_reload_entities.txt");
 }

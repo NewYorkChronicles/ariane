@@ -571,6 +571,7 @@ struct ObjectInst
 	int m_selected;
 	int m_highlight;	// various ways to highlight this object
 	bool m_isDeleted;	// marked for deletion (commented out in IPL)
+	bool m_isAdded;		// newly created text IPL instance not yet hot-reloaded into game
 	bool m_isDirty;		// position/rotation was modified
 	rw::V3d m_origTranslation;	// position the game currently has (for hot reload)
 	rw::Quat m_origRotation;	// rotation the game currently has (for hot reload)
