@@ -5,6 +5,8 @@
 
 #if defined(GTASA)
 #include <CGame.h>
+#include <CTimeCycle.h>
+#include <CStreaming.h>
 #endif
 
 using namespace plugin;
@@ -33,6 +35,9 @@ public:
 				CGame::currArea = area;
 				player->m_nAreaCode = area;
 				player->Teleport(CVector(x, y, z), false);
+				CVector loadPos(x, y, z);
+				CStreaming::LoadScene(&loadPos);
+				CTimeCycle::StopExtraColour(false);
 #else
 				player->Teleport(CVector(x, y, z));
 #endif
